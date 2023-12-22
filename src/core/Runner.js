@@ -106,55 +106,60 @@ var Common = require('./Common');
      * @param {number} time
      */
     Runner.tick = function(runner, engine, time) {
-        var timing = engine.timing,
-            delta;
+        try {
+            var timing = engine.timing,
+                delta;
 
-        if (runner.isFixed) {
-            // fixed timestep
-            delta = runner.delta;
-        } else {
-            // dynamic timestep based on wall clock between calls
-            delta = (time - runner.timePrev) || runner.delta;
-            runner.timePrev = time;
+            if (runner.isFixed) {
+                // fixed timestep
+                delta = runner.delta;
+            } else {
+                // dynamic timestep based on wall clock between calls
+                delta = (time - runner.timePrev) || runner.delta;
+                runner.timePrev = time;
 
-            // optimistically filter delta over a few frames, to improve stability
-            runner.deltaHistory.push(delta);
-            runner.deltaHistory = runner.deltaHistory.slice(-runner.deltaSampleSize);
-            delta = Math.min.apply(null, runner.deltaHistory);
+                // optimistically filter delta over a few frames, to improve stability
+                runner.deltaHistory.push(delta);
+                runner.deltaHistory = runner.deltaHistory.slice(-runner.deltaSampleSize);
+                delta = Math.min.apply(null, runner.deltaHistory);
 
-            // limit delta
-            delta = delta < runner.deltaMin ? runner.deltaMin : delta;
-            delta = delta > runner.deltaMax ? runner.deltaMax : delta;
+                // limit delta
+                delta = delta < runner.deltaMin ? runner.deltaMin : delta;
+                delta = delta > runner.deltaMax ? runner.deltaMax : delta;
 
-            // update engine timing object
-            runner.delta = delta;
+                // update engine timing object
+                runner.delta = delta;
+            }
+
+            // create an event object
+            var event = {
+                timestamp: timing.timestamp
+            };
+
+            Events.trigger(runner, 'beforeTick', event);
+
+            // fps counter
+            runner.frameCounter += 1;
+            if (time - runner.counterTimestamp >= 1000) {
+                runner.fps = runner.frameCounter * ((time - runner.counterTimestamp) / 1000);
+                runner.counterTimestamp = time;
+                runner.frameCounter = 0;
+            }
+
+            Events.trigger(runner, 'tick', event);
+
+            // update
+            Events.trigger(runner, 'beforeUpdate', event);
+
+            Engine.update(engine, delta);
+
+            Events.trigger(runner, 'afterUpdate', event);
+
+            Events.trigger(runner, 'afterTick', event);
+        } catch (e) {
+            console.error("Stopped the runner.", e);
+            Runner.stop(runner);
         }
-
-        // create an event object
-        var event = {
-            timestamp: timing.timestamp
-        };
-
-        Events.trigger(runner, 'beforeTick', event);
-
-        // fps counter
-        runner.frameCounter += 1;
-        if (time - runner.counterTimestamp >= 1000) {
-            runner.fps = runner.frameCounter * ((time - runner.counterTimestamp) / 1000);
-            runner.counterTimestamp = time;
-            runner.frameCounter = 0;
-        }
-
-        Events.trigger(runner, 'tick', event);
-
-        // update
-        Events.trigger(runner, 'beforeUpdate', event);
-
-        Engine.update(engine, delta);
-
-        Events.trigger(runner, 'afterUpdate', event);
-
-        Events.trigger(runner, 'afterTick', event);
     };
 
     /**
