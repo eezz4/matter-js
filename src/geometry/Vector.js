@@ -188,6 +188,9 @@ module.exports = Vector;
      * @return {vector} A new vector divided by scalar
      */
     Vector.div = function(vector, scalar) {
+        if (scalar === 0)
+            throw new Error("Division by zero is not allowed.");
+        
         return { x: vector.x / scalar, y: vector.y / scalar };
     };
 
